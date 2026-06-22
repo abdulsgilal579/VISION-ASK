@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VisionAsk</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+    <div class="container">
+        <h1>VisionAsk</h1>
+        <div class="main">
+            <div class="camera-panel">
+                <video id="video" autoplay playsinline></video>
+                <canvas id="canvas" hidden></canvas>
+                <p id="status" class="status">Starting camera...</p>
+                <div id="detections" class="detections"></div>
+            </div>
+            <div class="qa-panel">
+                <div id="answer" class="answer">Ask something about the scene...</div>
+                <div class="input-row">
+                    <input id="question" type="text" placeholder="e.g. is there anything sharp?" />
+                    <button id="ask-btn">Ask</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

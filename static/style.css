@@ -1,0 +1,118 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, sans-serif;
+    background: #0f0f0f;
+    color: #eee;
+    min-height: 100vh;
+    padding: 24px;
+}
+
+h1 {
+    font-size: 1.4rem;
+    margin-bottom: 20px;
+    letter-spacing: 0.05em;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+video {
+    width: 100%;
+    border-radius: 8px;
+    background: #1a1a1a;
+    display: block;
+}
+
+.status {
+    margin-top: 8px;
+    font-size: 0.78rem;
+    color: #666;
+}
+
+.detections {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 28px;
+}
+
+.badge {
+    background: #1a2f4a;
+    color: #7ec8e3;
+    border-radius: 4px;
+    padding: 3px 9px;
+    font-size: 0.74rem;
+}
+
+.qa-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.answer {
+    flex: 1;
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 320px;
+    font-size: 0.88rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    color: #ccc;
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+}
+
+input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #2a2a2a;
+    background: #1a1a1a;
+    color: #eee;
+    font-size: 0.88rem;
+}
+
+input:focus {
+    outline: none;
+    border-color: #7ec8e3;
+}
+
+button {
+    padding: 10px 18px;
+    background: #1a2f4a;
+    color: #7ec8e3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: background 0.15s;
+}
+
+button:hover {
+    background: #243d5e;
+}
+
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
