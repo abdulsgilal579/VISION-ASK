@@ -1,17 +1,30 @@
 # VisionAsk
 
-A real-time object-aware Q&A assistant. Point your webcam at a scene, ask a question in plain English, and get a grounded answer based on what is actually detected — including whether objects have moved between frames.
+A real-time visual Q&A assistant. Point your webcam at a scene, ask anything in plain English, and get a grounded answer based on what the model actually sees in the frame.
+
+![VisionAsk Screenshot](screenshot.png)
 
 ---
 
 ## What It Does
 
-- Captures a webcam snapshot every 2.5 seconds
-- Runs YOLOv8 nano object detection on each frame
-- Tracks each detected object across frames using a Kalman filter
-- Lets you type any natural language question about the scene
-- Sends the detected objects (with positions and movement deltas) to Groq's LLaMA 3 LLM
-- Returns a concise, grounded answer in under 300ms
+- Captures a live webcam feed in the browser
+- Runs **YOLOv8 nano** on each frame every 2.5s for real-time object detection and tracking
+- On each question, captures a fresh frame and sends it to a **vision LLM** (Llama 4 Scout via Groq)
+- The model sees the actual image — so it can answer questions about colours, clothing, expressions, gestures, text in the scene, and more
+- Kalman-filtered object tracking provides movement context (e.g. "moved 40px left") for motion-related questions
+- Clean chat UI with message history, animated thinking indicator, and live detection badges
+
+---
+
+## Demo
+
+Ask things like:
+- *"Is he wearing glasses?"*
+- *"What colour is his shirt?"*
+- *"How many people are in the frame?"*
+- *"Is he waving?"*
+- *"What is written on the board?"*
 
 ---
 
@@ -21,10 +34,42 @@ A real-time object-aware Q&A assistant. Point your webcam at a scene, ask a ques
 |---|---|
 | Frontend | HTML / CSS / Vanilla JS |
 | Backend | Python, FastAPI |
-| Object Detection | YOLOv8 nano (`yolov8n.pt`) via Ultralytics — 80 COCO classes, no custom training |
+| Object Detection | YOLOv8 nano (`yolov8n.pt`) via Ultralytics |
 | Object Tracking | Kalman filter (OpenCV) with IoU-based multi-object association |
-| LLM Inference | Groq API — `llama-3.3-70b-versatile` |
+| Vision LLM | Groq API — `meta-llama/llama-4-scout-17b-16e-instruct` |
 | Communication | HTTP (JSON) between frontend and backend |
+
+---
+
+## How It Works
+
+### Detection Pipeline (runs every 2.5s)
+
+```
+Webcam (getUserMedia)
+  → canvas snapshot → base64 JPEG
+  → POST /detect
+  → YOLOv8 inference (80 COCO classes, conf ≥ 0.4)
+  → Kalman filter tracker (IoU matching, prev_bbox stored)
+  → detection badges shown on UI
+```
+
+### Q&A Pipeline (runs on each question)
+
+```
+User types question + clicks Ask
+  → fresh frame captured from webcam
+  → POST /ask  { image, objects, question }
+  → image + tracker context sent to Llama 4 Scout (vision model)
+  → model sees the actual frame and answers
+  → response streamed into chat UI
+```
+
+### Why Both YOLO and a Vision LLM?
+
+YOLO gives **continuous, low-latency object tracking** — it updates every 2.5s without any user action and maintains position history across frames. This is what enables motion/movement answers ("moved 40px left since last scan").
+
+The vision LLM gives **open-ended visual understanding** — it can answer questions about anything in the image that YOLO's 80 fixed classes don't cover: colours, text, expressions, clothing, gestures, and more.
 
 ---
 
@@ -34,15 +79,16 @@ A real-time object-aware Q&A assistant. Point your webcam at a scene, ask a ques
 VisionAsk/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py        # FastAPI app — /detect and /ask endpoints, serves static/
+│   ├── main.py        # FastAPI app — /detect and /ask endpoints
 │   ├── detector.py    # YOLOv8 inference + Kalman filter multi-object tracker
-│   └── llm.py         # Groq API integration, prompt construction
+│   └── llm.py         # Groq API integration (vision model)
 ├── static/
-│   ├── index.html     # Webcam feed + Q&A interface
+│   ├── index.html     # Webcam feed + chat interface
 │   ├── style.css      # Dark theme layout
-│   └── app.js         # getUserMedia, polling loop, fetch calls
+│   └── app.js         # getUserMedia, scan loop, chat UI
 ├── scripts/
-│   └── cameratest.py  # Standalone camera sanity check (OpenCV)
+│   └── cameratest.py  # Standalone camera check (OpenCV)
+├── screenshot.png
 ├── requirements.txt
 ├── .env               # GROQ_API_KEY (gitignored)
 └── .gitignore
@@ -55,7 +101,7 @@ VisionAsk/
 **1. Clone and create a virtual environment**
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/abdulsamadgilal/VisionAsk
 cd VisionAsk
 python3 -m venv venv
 source venv/bin/activate
@@ -65,7 +111,6 @@ source venv/bin/activate
 
 ```bash
 pip install -r requirements.txt
-pip install python-dotenv
 ```
 
 **3. Add your Groq API key**
@@ -84,69 +129,7 @@ Get a free key at [console.groq.com](https://console.groq.com).
 uvicorn backend.main:app --reload
 ```
 
-Open `http://localhost:8000` in your browser.
-
----
-
-## How It Works
-
-### Detection Pipeline
-
-Each frame goes through:
-
-```
-Webcam (getUserMedia)
-  → canvas snapshot → base64 JPEG
-  → POST /detect
-  → YOLOv8 inference (80 COCO classes)
-  → confidence filter (≥ 0.4)
-  → Kalman filter tracker (IoU matching)
-  → [{label, confidence, bbox, prev_bbox}]
-  → detection badges on UI
-```
-
-### Tracking (Kalman Filter)
-
-YOLO is stateless — it sees one frame at a time with no memory. The Kalman filter adds temporal continuity:
-
-- Maintains one filter per tracked object with state `[x, y, w, h, vx, vy, vw, vh]`
-- **Predict step:** estimates where each object will be before YOLO runs
-- **Update step:** corrects the estimate using YOLO's actual detection (IoU matching)
-- Stores `prev_bbox` before each update so movement can be measured
-- Removes a track after 3 consecutive missed detections (`MAX_MISSES = 3`)
-
-### Q&A Pipeline
-
-```
-User types question
-  → POST /ask  {objects: [...], question: "..."}
-  → llm.py builds structured prompt
-  → Groq API (llama-3.3-70b-versatile)
-  → answer displayed in UI
-```
-
-### What Gets Sent to the LLM
-
-The prompt combines a system role with a structured scene description built from the tracker output. Example:
-
-```
---- PROMPT ---
-Detected objects:
-- person (52%) at center (320.6, 251.5), previously at (333.7, 254.5), moved by (-13.1, -3.0) pixels
-
-Question: what is the person doing
---------------
-```
-
-The `moved by` delta is only included when the same object has been tracked for at least two scans (≥ 5 seconds). On the first scan there is no previous position, so movement questions will correctly say the data is unavailable.
-
-**System message sent to LLM:**
-```
-You are a visual assistant. You are given a list of objects detected in a live webcam 
-scene along with their confidence scores. Answer the user's question based only on what 
-is detected. Be concise. If the question is about movement, compare the current and 
-previous positions if provided.
-```
+Open `http://localhost:8000` in your browser and allow camera access.
 
 ---
 
@@ -154,11 +137,11 @@ previous positions if provided.
 
 ### `POST /detect`
 
-Accepts a base64-encoded JPEG frame, returns tracked detections.
+Runs YOLOv8 on a frame and returns tracked objects.
 
 **Request**
 ```json
-{ "image": "<base64_jpeg_string>" }
+{ "image": "<base64_jpeg>" }
 ```
 
 **Response**
@@ -167,7 +150,7 @@ Accepts a base64-encoded JPEG frame, returns tracked detections.
   "objects": [
     {
       "label": "person",
-      "confidence": 0.52,
+      "confidence": 0.86,
       "bbox": [198.3, 126.0, 244.6, 251.0],
       "prev_bbox": [211.4, 129.0, 244.6, 251.0]
     }
@@ -175,42 +158,31 @@ Accepts a base64-encoded JPEG frame, returns tracked detections.
 }
 ```
 
-`bbox` format is `[x, y, width, height]` in pixels.
+`bbox` format: `[x, y, width, height]` in pixels.
 
 ### `POST /ask`
 
-Accepts the current object list and a question, returns an LLM answer.
+Sends a frame + question to the vision model and returns an answer.
 
 **Request**
 ```json
 {
-  "objects": [{ "label": "person", "confidence": 0.52, "bbox": [...], "prev_bbox": [...] }],
-  "question": "what is the person doing"
+  "image": "<base64_jpeg>",
+  "objects": [{ "label": "person", "confidence": 0.86, "bbox": [...], "prev_bbox": [...] }],
+  "question": "is he wearing glasses?"
 }
 ```
 
 **Response**
 ```json
-{ "answer": "The person appears to be moving slightly to the left based on the position change." }
+{ "answer": "Yes, the person in the frame is wearing glasses." }
 ```
-
----
-
-## Camera Test
-
-To verify your camera works before running the full app:
-
-```bash
-python scripts/cameratest.py
-```
-
-Press `Q` to quit.
 
 ---
 
 ## Notes
 
-- YOLOv8n is the nano variant — fast but less accurate than larger models. Swap `yolov8n.pt` for `yolov8s.pt` or `yolov8m.pt` for better accuracy at the cost of speed.
-- The Kalman filter tracks by label + IoU. Two objects of the same class close together may get cross-matched.
-- Movement detection requires the object to be tracked for at least 2 scans (5 seconds) before `prev_bbox` is available.
-- Groq's free tier has rate limits. If you hit them, the `/ask` endpoint will return a 500 error.
+- YOLOv8n is the nano variant — fast but less accurate. Swap `yolov8n.pt` for `yolov8s.pt` or `yolov8m.pt` for better accuracy at the cost of speed.
+- Movement detection requires an object to be tracked for at least 2 scans (5 seconds) before `prev_bbox` is populated.
+- Groq's free tier has rate limits. If you hit them the `/ask` endpoint will return an error.
+- A HTTPS context (or `localhost`) is required for `getUserMedia` camera access in the browser.

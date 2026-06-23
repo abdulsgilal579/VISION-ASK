@@ -7,24 +7,59 @@
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>VisionAsk</h1>
-        <div class="main">
-            <div class="camera-panel">
+    <nav>
+        <div class="nav-brand">
+            <div class="icon">👁</div>
+            <h1>VisionAsk</h1>
+        </div>
+        <div class="nav-status">
+            <span class="live-dot"></span>
+            <span id="status">Starting camera...</span>
+        </div>
+    </nav>
+
+    <div class="app-body">
+        <!-- Left: camera -->
+        <div class="camera-side">
+            <span class="camera-label">Live Feed</span>
+            <div class="video-wrapper">
                 <video id="video" autoplay playsinline></video>
                 <canvas id="canvas" hidden></canvas>
-                <p id="status" class="status">Starting camera...</p>
-                <div id="detections" class="detections"></div>
+                <div class="video-overlay"></div>
             </div>
-            <div class="qa-panel">
-                <div id="answer" class="answer">Ask something about the scene...</div>
-                <div class="input-row">
-                    <input id="question" type="text" placeholder="e.g. is there anything sharp?" />
-                    <button id="ask-btn">Ask</button>
+            <div class="detections-section">
+                <span class="detections-label">Detected Objects</span>
+                <div id="detections"></div>
+            </div>
+        </div>
+
+        <!-- Right: chat -->
+        <div class="chat-side">
+            <div class="chat-top">
+                <div>
+                    <div class="chat-title">Scene Assistant</div>
+                    <div class="chat-subtitle">Ask anything about the live feed</div>
                 </div>
+                <span class="model-tag">Llama 4 Scout</span>
+            </div>
+
+            <div id="chat-log" class="chat-log">
+                <div class="chat-empty">
+                    <div class="empty-icon">💬</div>
+                    <p>Ask something about what you see</p>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <input id="question" type="text" placeholder="What do you see? Is he wearing glasses?..." autocomplete="off" />
+                <button id="ask-btn">
+                    <span>Ask</span>
+                    <span>↑</span>
+                </button>
             </div>
         </div>
     </div>
+
     <script src="/static/app.js"></script>
 </body>
 </html>

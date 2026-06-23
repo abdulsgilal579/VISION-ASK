@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -8,9 +9,9 @@ load_dotenv()
 _client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SYSTEM_PROMPT = (
-    "You are a visual assistant. You are given a list of objects detected in a live webcam scene "
-    "along with their confidence scores. Answer the user's question based only on what is detected. "
-    "Be concise. If the question is about movement, compare the current and previous positions if provided."
+    "You are a visual assistant analyzing a live webcam frame. "
+    "Answer the user's question based on what you see in the image. "
+    "Be concise and direct."
 )
 
 
@@ -29,18 +30,33 @@ def _describe_objects(objects: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def ask(objects: list[dict], question: str) -> str:
-    if not objects:
-        scene = "No objects detected in the current scene."
-    else:
-        scene = f"Detected objects:\n{_describe_objects(objects)}"
+def ask(objects: list[dict], question: str, image_b64: Optional[str] = None) -> str:
+    context_lines = []
+    if objects:
+        context_lines.append(f"Object tracker also detected:\n{_describe_objects(objects)}")
 
-    print(f"\n--- PROMPT ---\n{scene}\n\nQuestion: {question}\n--------------\n")
+    context = "\n".join(context_lines)
+    user_text = f"{context}\n\nQuestion: {question}".strip() if context else f"Question: {question}"
+
+    if image_b64:
+        user_content = [
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
+            },
+            {"type": "text", "text": user_text},
+        ]
+        model = "meta-llama/llama-4-scout-17b-16e-instruct"
+    else:
+        user_content = user_text
+        model = "llama-3.3-70b-versatile"
+
+    print(f"\n--- PROMPT ---\n{user_text}\nmodel={model}\n--------------\n")
     response = _client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model=model,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"{scene}\n\nQuestion: {question}"},
+            {"role": "user", "content": user_content},
         ],
         max_tokens=300,
     )

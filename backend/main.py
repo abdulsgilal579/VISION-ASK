@@ -1,5 +1,6 @@
 import base64
 from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +31,7 @@ class DetectRequest(BaseModel):
 class AskRequest(BaseModel):
     objects: list[dict]
     question: str
+    image: Optional[str] = None  # base64-encoded JPEG of current frame
 
 
 @app.get("/")
@@ -51,5 +53,5 @@ def detect_endpoint(req: DetectRequest):
 def ask_endpoint(req: AskRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty")
-    answer = ask(req.objects, req.question)
+    answer = ask(req.objects, req.question, req.image)
     return {"answer": answer}
